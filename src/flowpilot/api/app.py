@@ -409,14 +409,15 @@ def create_app(settings: Settings | None = None, db: Database | None = None) -> 
     @app.post("/api/v1/runs/{run_id}/cancel", tags=["Executions"])
     def cancel_run(run_id: str, current: Actor = Depends(writer)):
         with db.transaction() as session:
+            now = db.current_time(session)
             run = run_for(session, current.org_id, run_id, lock=True)
             if run.status not in TERMINAL_RUNS:
                 run.status = "cancelled"
-                run.finished_at = time.time()
+                run.finished_at = now
                 run.lease_token = None
                 run.lease_until = None
                 session.execute(update(StepRun).where(StepRun.run_id == run.id, StepRun.status.not_in(["succeeded", "skipped", "failed"])).values(status="cancelled"))
-                session.execute(update(Attempt).where(Attempt.run_id == run.id, Attempt.status == "running").values(status="cancelled", finished_at=time.time()))
+                session.execute(update(Attempt).where(Attempt.run_id == run.id, Attempt.status == "running").values(status="cancelled", finished_at=now))
                 audit(session, current.org_id, current.id, "run.cancelled", run.id)
             return run_json(run)
 
@@ -433,16 +434,17 @@ def create_app(settings: Settings | None = None, db: Database | None = None) -> 
     @app.post("/api/v1/runs/{run_id}/steps/{node_id}/approval", tags=["Executions"])
     def approve_step(run_id: str, node_id: str, body: Approval, current: Actor = Depends(writer)):
         with db.transaction() as session:
+            now = db.current_time(session)
             run = run_for(session, current.org_id, run_id, lock=True)
             step = session.get(StepRun, (run.id, node_id))
-            if run.status in TERMINAL_RUNS or not step or step.status != "awaiting_approval" or not step.ready_at or step.ready_at < time.time():
+            if run.status in TERMINAL_RUNS or not step or step.status != "awaiting_approval" or not step.ready_at or step.ready_at < now:
                 raise DomainError(409, "approval_unavailable", "This execution is not awaiting this approval")
             step.output_cipher = vault.seal({"approved": body.approved, "reviewer": current.id, "note": body.note}, f"output:{run.org_id}:{run.id}:{node_id}")
             step.status = "succeeded" if body.approved else "failed"
             run.status = "queued" if body.approved else "failed"
-            run.available_at = time.time()
+            run.available_at = now
             if not body.approved:
-                run.finished_at = time.time()
+                run.finished_at = now
                 run.error_code = step.error_code = "approval_rejected"
             audit(session, current.org_id, current.id, "run.approval", run.id, node_id=node_id, approved=body.approved)
             return run_json(run)
@@ -493,9 +495,10 @@ def create_app(settings: Settings | None = None, db: Database | None = None) -> 
     @app.get("/api/v1/workspace", tags=["Workspace"])
     def workspace(current: Actor = Depends(actor)):
         with db.sessions() as session:
+            now = db.current_time(session)
             members = session.execute(select(Membership, User).join(User, Membership.user_id == User.id).where(Membership.org_id == current.org_id))
             events = session.scalars(select(AuditEvent).where(AuditEvent.org_id == current.org_id).order_by(AuditEvent.created_at.desc()).limit(50))
-            workers = session.scalars(select(WorkerHeartbeat).where(WorkerHeartbeat.seen_at > time.time() - 120))
+            workers = session.scalars(select(WorkerHeartbeat).where(WorkerHeartbeat.seen_at > now - 120))
             return {"members": [{"id": user.id, "name": user.name, "email": user.email, "role": membership.role} for membership, user in members], "events": [{"id": event.id, "action": event.action, "resource_id": event.resource_id, "created_at": event.created_at, "actor_id": event.actor_id, "detail": event.detail} for event in events], "workers": [{"id": worker.id, "seen_at": worker.seen_at} for worker in workers], "environment": settings.environment, "database": db.engine.dialect.name, "egress_hosts": settings.egress_hosts, "retention_days": settings.retention_days}
 
     @app.post("/api/v1/members", tags=["Workspace"])
@@ -538,8 +541,9 @@ def create_app(settings: Settings | None = None, db: Database | None = None) -> 
         if not expected or not hmac.compare_digest(request.headers.get("authorization", ""), f"Bearer {expected}"):
             raise DomainError(401, "authentication_required", "Metrics token required")
         with db.sessions() as session:
+            now = db.current_time(session)
             counts = session.execute(select(Run.status, func.count()).group_by(Run.status)).all()
-            workers = session.scalar(select(func.count()).select_from(WorkerHeartbeat).where(WorkerHeartbeat.seen_at >= time.time() - 120)) or 0
+            workers = session.scalar(select(func.count()).select_from(WorkerHeartbeat).where(WorkerHeartbeat.seen_at >= now - 120)) or 0
             lines = ["# HELP flowpilot_runs Persisted executions by current status.", "# TYPE flowpilot_runs gauge"]
             lines.extend(f'flowpilot_runs{{status="{status}"}} {count}' for status, count in counts)
             lines.extend(["# HELP flowpilot_workers_active Workers seen in the past 120 seconds.", "# TYPE flowpilot_workers_active gauge", f"flowpilot_workers_active {workers}"])

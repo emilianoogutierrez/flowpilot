@@ -2,9 +2,18 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
+
+
+def current_time(session: Session) -> float:
+    dialect = session.get_bind().dialect.name
+    if dialect == "postgresql":
+        return float(session.scalar(text("SELECT EXTRACT(EPOCH FROM clock_timestamp())")))
+    if dialect == "sqlite":
+        return float(session.scalar(text("SELECT (julianday('now') - 2440587.5) * 86400.0")))
+    raise RuntimeError(f"Unsupported database dialect: {dialect}")
 
 
 class Database:
@@ -21,6 +30,9 @@ class Database:
 
     def close(self) -> None:
         self.engine.dispose()
+
+    def current_time(self, session: Session) -> float:
+        return current_time(session)
 
     @staticmethod
     def _configure_sqlite(connection, _record):

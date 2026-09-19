@@ -6,6 +6,8 @@ from typing import Annotated, Any, Literal
 from jsonschema import Draft202012Validator
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from flowpilot.limits import MAX_NODE_TIMEOUT_SECONDS
+
 NODE_NAME = r"^[a-z][a-z0-9_]{0,47}$"
 REFERENCE = re.compile(r"^(input|steps)(\.[A-Za-z0-9_]+)+$")
 FORBIDDEN_SCHEMA_KEYS = {"$ref", "$dynamicRef", "pattern", "patternProperties", "contentSchema"}
@@ -34,7 +36,7 @@ class NodeBase(StrictModel):
     join: Literal["all", "any"] = "all"
     when: Predicate | None = None
     retry: RetryPolicy = Field(default_factory=RetryPolicy)
-    timeout_seconds: int = Field(default=15, ge=1, le=30)
+    timeout_seconds: int = Field(default=15, ge=1, le=MAX_NODE_TIMEOUT_SECONDS)
 
 
 class SetNode(NodeBase):

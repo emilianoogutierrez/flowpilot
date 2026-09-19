@@ -36,7 +36,7 @@ An idempotency key is scoped to an organization and workflow. Its lifetime is th
 
 ## Runtime limits
 
-Definitions contain at most 32 nodes and 64 KiB. Execution inputs are limited to 64 KiB. External calls have bounded request and response sizes. A step's external timeout is at most 30 seconds. The default lease is 90 seconds. DNS lookup and database stalls are not a universal hard wall-clock deadline; use process/network controls for deployment.
+Definitions contain at most 32 nodes and 64 KiB. Execution inputs are limited to 64 KiB. External calls have bounded request and response sizes. A step's external timeout is at most 30 seconds. Worker leases are at least 60 seconds and default to 90 seconds. Lease timestamps use the database clock so workers on different hosts do not decide expiry from unsynchronized local clocks. DNS lookup and database stalls are not a universal hard wall-clock deadline; use process/network controls for deployment.
 
 The workflow concurrency setting limits in-flight leased runs for that workflow. A single run executes one actionable node at a time, even when the graph exposes independent branches. Delays and approvals release their lease; they do not consume an idle worker.
 

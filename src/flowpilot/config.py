@@ -7,6 +7,8 @@ from typing import Literal
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from flowpilot.limits import MIN_WORKER_LEASE_SECONDS
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="FLOWPILOT_", env_file=".env", extra="ignore")
@@ -22,7 +24,7 @@ class Settings(BaseSettings):
     session_hours: int = Field(default=12, ge=1, le=72)
     max_request_bytes: int = Field(default=131072, ge=1024, le=1048576)
     max_response_bytes: int = Field(default=262144, ge=1024, le=1048576)
-    lease_seconds: int = Field(default=90, ge=10, le=600)
+    lease_seconds: int = Field(default=90, ge=MIN_WORKER_LEASE_SECONDS, le=600)
     poll_seconds: float = Field(default=0.5, ge=0.05, le=10)
     max_queued_runs: int = Field(default=500, ge=1, le=10000)
     webhook_clock_skew: int = 300

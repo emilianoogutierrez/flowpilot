@@ -11,6 +11,7 @@ from flowpilot.crypto import Vault
 from flowpilot.db import Database
 from flowpilot.engine.definition import Definition
 from flowpilot.engine.worker import Worker
+from flowpilot.models import Run, Workflow
 from flowpilot.services import create_workflow, enqueue, publish
 
 pytestmark = pytest.mark.postgres
@@ -80,3 +81,45 @@ def test_postgres_concurrent_duplicate_submission_creates_one_run(postgres):
         results = list(pool.map(submit, range(6)))
     assert len({run_id for run_id, _ in results}) == 1
     assert sum(created for _, created in results) == 1
+
+
+def test_postgres_saturated_workflow_does_not_block_other_workflow(postgres):
+    db, settings = postgres
+    identity, vault, saturated_id = published_job(db, settings)
+    with db.transaction() as session:
+        project_id = identity['project_id']
+        workflow, _ = create_workflow(
+            session,
+            vault,
+            identity['org_id'],
+            identity['user_id'],
+            project_id,
+            'Available',
+            '',
+            Definition(nodes=[{'id': 'map', 'type': 'set', 'values': {'result': True}}]),
+        )
+        workflow.max_concurrency = 1
+        publish(session, identity['org_id'], identity['user_id'], workflow.id, 1)
+        session.get(Workflow, saturated_id).max_concurrency = 1
+        available_id = workflow.id
+
+    with db.transaction() as session:
+        active, _ = enqueue(session, vault, identity['org_id'], identity['user_id'], saturated_id, {}, 'active', 100)
+    first = Worker(db, settings, worker_id='postgres-active')
+    second = Worker(db, settings, worker_id='postgres-fair')
+    try:
+        claim = first.claim()
+        assert claim is not None
+        assert claim.run_id == active.id
+        with db.transaction() as session:
+            for index in range(20):
+                enqueue(session, vault, identity['org_id'], identity['user_id'], saturated_id, {}, f'saturated-{index}', 100)
+            available, _ = enqueue(session, vault, identity['org_id'], identity['user_id'], available_id, {}, 'available', 100)
+        fair_claim = second.claim()
+        assert fair_claim is not None
+        assert fair_claim.run_id == available.id
+        with db.sessions() as session:
+            assert session.get(Run, fair_claim.run_id).workflow_id == available_id
+    finally:
+        first.tracer_provider.shutdown()
+        second.tracer_provider.shutdown()
