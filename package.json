@@ -8,6 +8,6 @@
     "typecheck": "tsc -p web/tsconfig.json --noEmit",
     "test": "npm run build && node --test web/tests/*.test.mjs"
   },
-  "devDependencies": {"typescript": "5.8.3"},
+  "devDependencies": {"typescript": "7.0.2"},
   "engines": {"node": ">=20"}
 }
