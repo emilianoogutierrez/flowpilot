@@ -8,7 +8,7 @@ Steps add `pending`, `skipped` and `awaiting_approval`. The separate attempt tab
 
 ## Claim, prepare, execute, commit
 
-A worker claims a due run and stores a random lease token and expiry. PostgreSQL uses `FOR UPDATE SKIP LOCKED`; local SQLite serializes the write transaction. Claiming also checks the workflow's configured concurrency limit.
+A worker claims a due run and stores a random lease token and expiry. PostgreSQL uses `FOR UPDATE SKIP LOCKED`; local SQLite serializes the write transaction. Lease timestamps come from the database clock unless a test explicitly injects a time. Claiming filters out workflows already at their concurrency limit before applying the candidate window, then re-checks the limit while holding the workflow lock.
 
 Preparation checks ownership, loads the immutable definition and persisted ancestor outputs, then either records a durable wait or creates a running attempt. The network request occurs after this transaction commits.
 

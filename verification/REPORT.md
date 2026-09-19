@@ -6,8 +6,8 @@ This document records a local verification snapshot for FlowPilot 0.1.0. It is n
 
 | Check | Result |
 | :--- | :--- |
-| Python backend tests | 142 passed, 2 PostgreSQL-only tests skipped, 0 failed |
-| Python statement coverage | 90.41% (1668 / 1845 statements) |
+| Python backend tests | 147 passed, 3 PostgreSQL-only tests skipped, 0 failed |
+| Python statement coverage | 90.57% (1699 / 1876 statements) |
 | TypeScript strict checking | Passed |
 | Frontend build | Passed |
 | Frontend unit tests | 4 passed |
@@ -29,7 +29,7 @@ The separate `scripts/http_smoke.py` starts an API process and a worker process 
 
 ## Reliability and security coverage
 
-Tests cover duplicate submissions, stale revisions, immutable workflow versions, lease expiration, interrupted attempts, late-result fencing, bounded retries, durable delays, approvals and cancellation. Unsafe side effects with uncertain outcomes are not blindly repeated.
+Tests cover duplicate submissions, stale revisions, immutable workflow versions, lease expiration, interrupted attempts, late-result fencing, bounded retries, durable delays, approvals and cancellation. Scheduler fairness is covered against saturated workflows, and worker lease timestamps are checked against the database clock. Unsafe side effects with uncertain outcomes are not blindly repeated.
 
 Security-focused tests cover organization scoping, permission failures, session revocation, CSRF/origin checks, request and response limits, JSON contract rejection, authenticated encryption, secret redaction, blocked private addresses, TLS hostname validation and redirect refusal. These are implementation checks, not an independent security audit.
 
@@ -39,12 +39,12 @@ The recorded workload uses SQLite, one worker, 100 pre-admitted runs and three l
 
 | Measurement | Observed |
 | :--- | ---: |
-| Admission time | 0.5143 seconds |
-| Queue drain time | 3.7793 seconds |
-| Completed runs per second | 26.46 |
-| Queue-inclusive p50 latency | 3676.89 ms |
-| Queue-inclusive p95 latency | 3773.72 ms |
-| Queue-inclusive p99 latency | 3780.25 ms |
+| Admission time | 0.2696 seconds |
+| Queue drain time | 2.7042 seconds |
+| Completed runs per second | 36.98 |
+| Queue-inclusive p50 latency | 2594.93 ms |
+| Queue-inclusive p95 latency | 2693.96 ms |
+| Queue-inclusive p99 latency | 2700.70 ms |
 
 Treat these numbers as a repeatable local smoke workload, not as PostgreSQL capacity, HTTP throughput, customer scale or real AI latency. The benchmark source is `scripts/benchmark.py`.
 
