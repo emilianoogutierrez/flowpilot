@@ -1,0 +1,62 @@
+name: flowpilot
+
+x-app: &app
+  build: .
+  image: flowpilot:local
+  env_file: .env
+  environment:
+    FLOWPILOT_DATABASE_URL: postgresql+psycopg://flowpilot:${POSTGRES_PASSWORD:?Run scripts/bootstrap.py first}@postgres:5432/flowpilot
+    FLOWPILOT_PUBLIC_ORIGIN: http://localhost:8000
+    FLOWPILOT_ENVIRONMENT: development
+    FLOWPILOT_SECURE_COOKIES: "false"
+    FLOWPILOT_ALLOWED_HOSTS: '["localhost","127.0.0.1"]'
+  read_only: true
+  tmpfs:
+    - /tmp:size=64m
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
+  pids_limit: 128
+
+services:
+  postgres:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_USER: flowpilot
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/bootstrap.py first}
+      POSTGRES_DB: flowpilot
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U flowpilot -d flowpilot"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  init:
+    <<: *app
+    command: ["python", "-m", "flowpilot.cli", "init", "--demo"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+  api:
+    <<: *app
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+  worker:
+    <<: *app
+    command: ["python", "-m", "flowpilot.cli", "worker"]
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+volumes:
+  database:

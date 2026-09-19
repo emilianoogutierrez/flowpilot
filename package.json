@@ -1,0 +1,13 @@
+{
+  "name": "flowpilot-console",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-web.mjs",
+    "typecheck": "tsc -p web/tsconfig.json --noEmit",
+    "test": "npm run build && node --test web/tests/*.test.mjs"
+  },
+  "devDependencies": {"typescript": "5.8.3"},
+  "engines": {"node": ">=20"}
+}

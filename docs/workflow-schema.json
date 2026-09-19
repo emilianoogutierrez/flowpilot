@@ -1,0 +1,647 @@
+{
+  "$defs": {
+    "AiNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Label",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "join": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Join",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Predicate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "timeout_seconds": {
+          "default": 15,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "ai",
+          "title": "Type",
+          "type": "string"
+        },
+        "provider": {
+          "enum": [
+            "mock",
+            "openai",
+            "anthropic",
+            "gemini"
+          ],
+          "title": "Provider",
+          "type": "string"
+        },
+        "model": {
+          "default": "fixture",
+          "maxLength": 100,
+          "pattern": "^[A-Za-z0-9._:/-]+$",
+          "title": "Model",
+          "type": "string"
+        },
+        "prompt": {
+          "title": "Prompt"
+        },
+        "credential_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Id"
+        },
+        "response_schema": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Response Schema"
+        },
+        "mock_response": {
+          "title": "Mock Response"
+        },
+        "max_output_tokens": {
+          "default": 512,
+          "maximum": 2048,
+          "minimum": 16,
+          "title": "Max Output Tokens",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "provider",
+        "prompt"
+      ],
+      "title": "AiNode",
+      "type": "object"
+    },
+    "ApprovalNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Label",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "join": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Join",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Predicate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "timeout_seconds": {
+          "default": 15,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "approval",
+          "title": "Type",
+          "type": "string"
+        },
+        "message": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        },
+        "expires_after": {
+          "default": 86400,
+          "maximum": 604800,
+          "minimum": 60,
+          "title": "Expires After",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "message"
+      ],
+      "title": "ApprovalNode",
+      "type": "object"
+    },
+    "ConditionNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Label",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "join": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Join",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Predicate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "timeout_seconds": {
+          "default": 15,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "condition",
+          "title": "Type",
+          "type": "string"
+        },
+        "predicate": {
+          "$ref": "#/$defs/Predicate"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "predicate"
+      ],
+      "title": "ConditionNode",
+      "type": "object"
+    },
+    "DelayNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Label",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "join": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Join",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Predicate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "timeout_seconds": {
+          "default": 15,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "delay",
+          "title": "Type",
+          "type": "string"
+        },
+        "seconds": {
+          "maximum": 604800,
+          "minimum": 1,
+          "title": "Seconds",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "seconds"
+      ],
+      "title": "DelayNode",
+      "type": "object"
+    },
+    "HttpNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Label",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "join": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Join",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Predicate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "timeout_seconds": {
+          "default": 15,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "http",
+          "title": "Type",
+          "type": "string"
+        },
+        "url": {
+          "maxLength": 2048,
+          "minLength": 9,
+          "title": "Url",
+          "type": "string"
+        },
+        "method": {
+          "default": "GET",
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
+          "title": "Method",
+          "type": "string"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Headers",
+          "type": "object"
+        },
+        "body": {
+          "default": null,
+          "title": "Body"
+        },
+        "credential_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Credential Id"
+        },
+        "receiver_supports_idempotency": {
+          "default": false,
+          "title": "Receiver Supports Idempotency",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "url"
+      ],
+      "title": "HttpNode",
+      "type": "object"
+    },
+    "Predicate": {
+      "additionalProperties": false,
+      "properties": {
+        "left": {
+          "title": "Left"
+        },
+        "op": {
+          "default": "eq",
+          "enum": [
+            "eq",
+            "ne",
+            "gt",
+            "gte",
+            "lt",
+            "lte",
+            "contains",
+            "exists"
+          ],
+          "title": "Op",
+          "type": "string"
+        },
+        "right": {
+          "default": null,
+          "title": "Right"
+        }
+      },
+      "required": [
+        "left"
+      ],
+      "title": "Predicate",
+      "type": "object"
+    },
+    "RetryPolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "max_attempts": {
+          "default": 3,
+          "maximum": 5,
+          "minimum": 1,
+          "title": "Max Attempts",
+          "type": "integer"
+        },
+        "initial_seconds": {
+          "default": 1,
+          "maximum": 30,
+          "minimum": 0.1,
+          "title": "Initial Seconds",
+          "type": "number"
+        },
+        "max_seconds": {
+          "default": 60,
+          "maximum": 300,
+          "minimum": 1,
+          "title": "Max Seconds",
+          "type": "number"
+        }
+      },
+      "title": "RetryPolicy",
+      "type": "object"
+    },
+    "SetNode": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "pattern": "^[a-z][a-z0-9_]{0,47}$",
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "default": "",
+          "maxLength": 80,
+          "title": "Label",
+          "type": "string"
+        },
+        "depends_on": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 32,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "join": {
+          "default": "all",
+          "enum": [
+            "all",
+            "any"
+          ],
+          "title": "Join",
+          "type": "string"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Predicate"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "retry": {
+          "$ref": "#/$defs/RetryPolicy"
+        },
+        "timeout_seconds": {
+          "default": 15,
+          "maximum": 30,
+          "minimum": 1,
+          "title": "Timeout Seconds",
+          "type": "integer"
+        },
+        "type": {
+          "const": "set",
+          "title": "Type",
+          "type": "string"
+        },
+        "values": {
+          "additionalProperties": true,
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "values"
+      ],
+      "title": "SetNode",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    },
+    "input_schema": {
+      "additionalProperties": true,
+      "title": "Input Schema",
+      "type": "object"
+    },
+    "nodes": {
+      "items": {
+        "discriminator": {
+          "mapping": {
+            "ai": "#/$defs/AiNode",
+            "approval": "#/$defs/ApprovalNode",
+            "condition": "#/$defs/ConditionNode",
+            "delay": "#/$defs/DelayNode",
+            "http": "#/$defs/HttpNode",
+            "set": "#/$defs/SetNode"
+          },
+          "propertyName": "type"
+        },
+        "oneOf": [
+          {
+            "$ref": "#/$defs/SetNode"
+          },
+          {
+            "$ref": "#/$defs/ConditionNode"
+          },
+          {
+            "$ref": "#/$defs/DelayNode"
+          },
+          {
+            "$ref": "#/$defs/ApprovalNode"
+          },
+          {
+            "$ref": "#/$defs/HttpNode"
+          },
+          {
+            "$ref": "#/$defs/AiNode"
+          }
+        ]
+      },
+      "maxItems": 32,
+      "minItems": 1,
+      "title": "Nodes",
+      "type": "array"
+    }
+  },
+  "required": [
+    "nodes"
+  ],
+  "title": "Definition",
+  "type": "object"
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "input_schema": {"type": "object", "properties": {"name": {"type": "string"}, "amount": {"type": "number"}}, "required": ["name", "amount"], "additionalProperties": false},
+  "nodes": [
+    {"id": "receive", "type": "set", "label": "Map incoming event", "values": {"name": {"$ref": "input.name"}, "amount": {"$ref": "input.amount"}, "source": "webhook"}},
+    {"id": "check", "type": "condition", "label": "Validate amount", "depends_on": ["receive"], "predicate": {"left": {"$ref": "steps.receive.amount"}, "op": "gt", "right": 0}},
+    {"id": "confirm", "type": "set", "label": "Prepare receipt", "depends_on": ["check"], "when": {"left": {"$ref": "steps.check.match"}, "op": "eq", "right": true}, "values": {"accepted": true, "name": {"$ref": "steps.receive.name"}}}
+  ]
+}

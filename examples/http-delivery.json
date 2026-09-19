@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "input_schema": {"type": "object"},
+  "nodes": [
+    {"id": "prepare", "type": "set", "label": "Map request", "values": {"event": "inquiry.created"}},
+    {"id": "review", "type": "approval", "label": "Approve delivery", "depends_on": ["prepare"], "message": "This step will send data to the configured remote endpoint."},
+    {"id": "deliver", "type": "http", "label": "Deliver event", "depends_on": ["review"], "method": "POST", "url": "https://example.com/flowpilot/events", "body": {"$ref": "steps.prepare.event"}, "retry": {"max_attempts": 1}}
+  ]
+}
