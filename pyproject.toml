@@ -19,7 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 postgres = ["psycopg[binary]==3.3.5"]
-dev = ["pytest==9.0.2", "pytest-cov==7.0.0", "playwright>=1.49,<2", "ruff>=0.11,<1", "mypy>=1.15,<2"]
+dev = ["pytest==9.0.2", "pytest-cov==7.0.0", "playwright>=1.63.0,<2", "ruff>=0.11,<1", "mypy>=1.15,<2"]
 
 [project.scripts]
 flowpilot = "flowpilot.cli:main"
