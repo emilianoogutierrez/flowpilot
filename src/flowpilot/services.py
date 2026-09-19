@@ -8,6 +8,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from flowpilot.crypto import Vault, json_digest
+from flowpilot.db import current_time
 from flowpilot.engine.definition import Definition
 from flowpilot.errors import DomainError
 from flowpilot.models import (
@@ -143,7 +144,7 @@ def enqueue(session: Session, vault: Vault, org_id: str, actor_id: str | None, w
     if pending >= max_queued:
         raise DomainError(429, "queue_full", "Workspace execution capacity reached")
     run_id = new_id()
-    run = Run(id=run_id, org_id=org_id, workflow_id=workflow_id, version_id=version.id, idempotency_key=idempotency_key, input_hash=request_hash, input_cipher=vault.seal(payload, f"input:{org_id}:{run_id}"), credentials=credentials, dry_run=dry_run, source=source, parent_id=parent_id)
+    run = Run(id=run_id, org_id=org_id, workflow_id=workflow_id, version_id=version.id, idempotency_key=idempotency_key, input_hash=request_hash, input_cipher=vault.seal(payload, f"input:{org_id}:{run_id}"), credentials=credentials, dry_run=dry_run, source=source, parent_id=parent_id, available_at=current_time(session))
     session.add(run)
     session.flush()
     for node in definition.nodes:

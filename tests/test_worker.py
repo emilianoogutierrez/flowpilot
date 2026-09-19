@@ -1,13 +1,13 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
 
-
+import pytest
 from sqlalchemy import select
 
 from flowpilot.engine.worker import Worker
 from flowpilot.integrations.ai import NodeResult
 from flowpilot.integrations.http import HttpResult
-from flowpilot.models import Attempt, Run, StepRun
+from flowpilot.models import Attempt, Run, StepRun, Workflow
 
 
 def drain(worker, limit=30):
@@ -200,12 +200,97 @@ def test_concurrent_claims_are_unique_and_limited(make_workflow, make_run, db, s
     workflow = make_workflow()
     for index in range(8):
         make_run(workflow['workflow_id'], key=f'event-{index}')
+
     def claim(index):
         return Worker(db, settings, worker_id=f'worker-{index}').claim()
+
     with ThreadPoolExecutor(max_workers=8) as pool:
         claims = [item for item in pool.map(claim, range(8)) if item]
     assert len(claims) == 2
     assert len({item.run_id for item in claims}) == 2
+
+
+def test_saturated_workflow_does_not_starve_other_workflows(
+    worker, make_workflow, make_run, db, settings
+):
+    saturated = make_workflow()
+    available = make_workflow()
+
+    with db.transaction() as session:
+        session.get(Workflow, saturated['workflow_id']).max_concurrency = 1
+        session.get(Workflow, available['workflow_id']).max_concurrency = 1
+
+    active_run_id = make_run(saturated['workflow_id'], key='active-run')
+    active_claim = worker.claim()
+    assert active_claim is not None
+    assert active_claim.run_id == active_run_id
+
+    for index in range(20):
+        make_run(saturated['workflow_id'], key=f'saturated-{index}')
+
+    available_run_id = make_run(available['workflow_id'], key='available-run')
+    other = Worker(db, settings, worker_id='fair-worker')
+    claim = other.claim()
+
+    assert claim is not None
+    assert claim.run_id == available_run_id
+
+
+def test_worker_lease_uses_database_clock(worker, make_workflow, make_run, db, settings, monkeypatch):
+    workflow = make_workflow()
+    run_id = make_run(workflow['workflow_id'])
+    database_now = 1_000_000.25
+
+    with db.transaction() as session:
+        session.get(Run, run_id).available_at = database_now - 1
+
+    monkeypatch.setattr(db, 'current_time', lambda _session: database_now)
+    claim = worker.claim()
+
+    assert claim is not None
+    with db.sessions() as session:
+        run = session.get(Run, run_id)
+        assert run.started_at == pytest.approx(database_now)
+        assert run.lease_until == pytest.approx(database_now + settings.lease_seconds)
+
+
+def test_lease_configuration_keeps_margin_over_external_timeout(settings):
+    with pytest.raises(ValueError):
+        settings.__class__(master_keys=settings.master_keys, lease_seconds=59)
+
+
+def test_missing_runtime_reference_is_node_input_invalid(worker, make_workflow, make_run, db):
+    workflow = make_workflow(nodes=[
+        {'id': 'first', 'type': 'set', 'values': {'value': 1}},
+        {
+            'id': 'second',
+            'type': 'set',
+            'depends_on': ['first'],
+            'values': {'copied': {'$ref': 'steps.first.missing'}},
+        },
+    ])
+    run_id = make_run(workflow['workflow_id'])
+
+    drain(worker)
+
+    with db.sessions() as session:
+        assert session.get(Run, run_id).error_code == 'node_input_invalid'
+
+
+def test_internal_key_error_is_not_misclassified(
+    worker, make_workflow, make_run, db, monkeypatch
+):
+    workflow = make_workflow()
+    run_id = make_run(workflow['workflow_id'])
+
+    def raise_internal_error(_item):
+        raise KeyError('implementation bug')
+
+    monkeypatch.setattr(worker, 'execute', raise_internal_error)
+    assert worker.tick()
+
+    with db.sessions() as session:
+        assert session.get(Run, run_id).error_code == 'internal_execution_error'
 
 
 def test_running_execution_keeps_original_definition(worker, client, make_workflow, make_run, db):

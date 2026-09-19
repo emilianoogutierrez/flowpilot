@@ -10,6 +10,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from sqlalchemy import and_, func, or_, select, update
+from sqlalchemy.orm import aliased
 
 from flowpilot.config import Settings, get_settings
 from flowpilot.crypto import Vault
@@ -78,15 +79,35 @@ class Worker:
         self.stopping = threading.Event()
 
     def claim(self, now: float | None = None) -> Claim | None:
-        now = time.time() if now is None else now
         with self.db.transaction() as session:
+            now = self.db.current_time(session) if now is None else now
             heartbeat = session.get(WorkerHeartbeat, self.id)
             if heartbeat:
                 heartbeat.seen_at = now
             else:
                 session.add(WorkerHeartbeat(id=self.id, seen_at=now))
             eligible = or_(and_(Run.status.in_(["queued", "waiting", "retry_wait"]), Run.available_at <= now), and_(Run.status == "running", Run.lease_until < now))
-            candidates = session.scalars(select(Run).where(eligible).order_by(Run.available_at, Run.created_at).limit(20).with_for_update(skip_locked=True)).all()
+            active_run = aliased(Run)
+            active_count = (
+                select(func.count())
+                .select_from(active_run)
+                .where(
+                    active_run.workflow_id == Run.workflow_id,
+                    active_run.status == "running",
+                    active_run.lease_until >= now,
+                    active_run.id != Run.id,
+                )
+                .correlate(Run)
+                .scalar_subquery()
+            )
+            candidates = session.scalars(
+                select(Run)
+                .join(Workflow, Workflow.id == Run.workflow_id)
+                .where(eligible, active_count < Workflow.max_concurrency)
+                .order_by(Run.available_at, Run.created_at)
+                .limit(20)
+                .with_for_update(skip_locked=True, of=Run)
+            ).all()
             for run in candidates:
                 workflow = session.scalar(select(Workflow).where(Workflow.id == run.workflow_id).with_for_update(skip_locked=True))
                 if not workflow:
@@ -122,8 +143,8 @@ class Worker:
         return None
 
     def prepare(self, claim: Claim, now: float | None = None) -> WorkItem | None:
-        now = time.time() if now is None else now
         with self.db.transaction() as session:
+            now = self.db.current_time(session) if now is None else now
             run = session.scalar(select(Run).where(Run.id == claim.run_id).with_for_update())
             if not self._owns(run, claim, now):
                 return None
@@ -196,14 +217,28 @@ class Worker:
                 self._release(run, "queued", now)
         return None
 
+    @staticmethod
+    def _resolve_input(value: Any, context: dict) -> Any:
+        try:
+            return resolve(value, context)
+        except (ValueError, TypeError) as error:
+            raise ExecutionError("node_input_invalid") from error
+
+    @staticmethod
+    def _evaluate_input(predicate: Any, context: dict) -> bool:
+        try:
+            return evaluate(predicate, context)
+        except (ValueError, TypeError) as error:
+            raise ExecutionError("node_input_invalid") from error
+
     def execute(self, item: WorkItem) -> NodeResult:
         node, context = item.node, item.context
         if isinstance(node, SetNode):
-            return NodeResult(resolve(node.values, context))
+            return NodeResult(self._resolve_input(node.values, context))
         if isinstance(node, ConditionNode):
-            return NodeResult({"match": evaluate(node.predicate, context)})
+            return NodeResult({"match": self._evaluate_input(node.predicate, context)})
         if isinstance(node, AiNode):
-            return self.ai.execute(node, resolve(node.prompt, context), item.key, item.dry_run)
+            return self.ai.execute(node, self._resolve_input(node.prompt, context), item.key, item.dry_run)
         if isinstance(node, HttpNode):
             if item.dry_run:
                 return NodeResult({"simulated": True, "status": 200, "body": None})
@@ -216,7 +251,7 @@ class Worker:
                 headers["Authorization"] = f"Bearer {item.key}"
             retry_safe = node.method == "GET" or node.receiver_supports_idempotency
             try:
-                result = self.transport.request(node.method, node.url, headers, resolve(node.body, context), node.timeout_seconds)
+                result = self.transport.request(node.method, node.url, headers, self._resolve_input(node.body, context), node.timeout_seconds)
             except ExecutionError as error:
                 if not retry_safe:
                     error.retryable = False
@@ -226,8 +261,8 @@ class Worker:
         raise ExecutionError("node_not_supported")
 
     def finish(self, item: WorkItem, result: NodeResult | None, error: ExecutionError | None, duration_ms: float, now: float | None = None) -> bool:
-        now = time.time() if now is None else now
         with self.db.transaction() as session:
+            now = self.db.current_time(session) if now is None else now
             run = session.scalar(select(Run).where(Run.id == item.claim.run_id).with_for_update())
             if not self._owns(run, item.claim, now):
                 return False
@@ -272,8 +307,6 @@ class Worker:
                 result = self.execute(item)
             except ExecutionError as failure:
                 error = failure
-            except (ValueError, TypeError, KeyError):
-                error = ExecutionError("node_input_invalid")
             except Exception as failure:
                 log_event("worker.unhandled_error", run_id=claim.run_id, error_type=type(failure).__name__)
                 error = ExecutionError("internal_execution_error")
