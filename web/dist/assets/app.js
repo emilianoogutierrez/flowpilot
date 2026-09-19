@@ -20,7 +20,7 @@ function loginScreen() {
     errorMessage.setAttribute('role', 'alert');
     const submit = el('button', 'button primary login-submit', 'Sign in', icon('arrow'));
     submit.type = 'submit';
-    const form = el('form', 'login-form', el('div', 'brand login-brand', el('span', 'brand-mark', 'F'), 'flowpilot'), el('p', 'eyebrow', 'WORKFLOW EXECUTION CONSOLE'), el('h1', '', 'Welcome back.'), el('p', 'muted', 'Sign in to inspect, run and improve your workflows.'), field('Email address', email), field('Password', password), errorMessage, submit, el('p', 'login-footnote', 'Local setup? Your generated demo credentials are in .env.'));
+    const form = el('form', 'login-form', el('div', 'brand login-brand', el('span', 'brand-mark', 'F'), 'FlowPilot'), el('p', 'eyebrow', 'WORKFLOW EXECUTION CONSOLE'), el('h1', '', 'Control every execution.'), el('p', 'muted', 'Inspect versioned workflows, durable waits and every committed step from one operator console.'), field('Email address', email), field('Password', password), errorMessage, submit, el('p', 'login-footnote', 'Local setup? Your generated demo credentials are in .env.'));
     form.addEventListener('submit', event => {
         event.preventDefault();
         errorMessage.textContent = '';
@@ -37,7 +37,7 @@ function loginScreen() {
             }
         }).catch(showError);
     });
-    const illustration = el('div', 'login-aside', el('div', 'login-orbit', icon('workflow')), el('div', '', el('span', 'eyebrow', 'CLARITY AT EVERY STEP'), el('h2', '', 'Make the work visible.'), el('p', '', 'Versioned workflows. Durable execution. A record of what happened, not a guess about what should have happened.')));
+    const illustration = el('div', 'login-aside', el('div', 'login-orbit', icon('workflow')), el('div', '', el('span', 'eyebrow', 'DURABLE BY DESIGN'), el('h2', '', 'Execution you can explain.'), el('p', '', 'Versioned definitions, fenced workers and explicit side effects. The console shows what actually happened, with enough context to act on it.')));
     root.replaceChildren(el('main', 'login-layout', el('div', 'login-panel', form), illustration));
     document.title = 'Sign in · FlowPilot';
 }
@@ -69,7 +69,7 @@ function mountShell() {
         loginScreen();
     }, 'icon-button', 'logout');
     signout.setAttribute('aria-label', 'Sign out');
-    const sidebar = el('aside', 'sidebar', el('a', 'brand', el('span', 'brand-mark', 'F'), 'flowpilot'), el('div', 'workspace-selector', el('span', 'sidebar-label', 'WORKSPACE'), choice), el('span', 'sidebar-label nav-label', 'BUILD & OPERATE'), nav, el('div', 'sidebar-bottom', el('div', 'sidebar-note', el('span', 'status-dot'), 'Self-hosted console', el('span', 'mono small muted', 'v0.1.0')), el('div', 'user-block', el('div', 'avatar', initials(user.name)), el('div', 'user-info', el('strong', '', user.name), el('span', 'muted small', workspace.role)), signout)));
+    const sidebar = el('aside', 'sidebar', el('a', 'brand', el('span', 'brand-mark', 'F'), 'FlowPilot'), el('div', 'workspace-selector', el('span', 'sidebar-label', 'WORKSPACE'), choice), el('span', 'sidebar-label nav-label', 'BUILD & OPERATE'), nav, el('div', 'sidebar-bottom', el('div', 'sidebar-note', el('span', 'status-dot'), 'Self-hosted console', el('span', 'mono small muted', 'v0.1.0')), el('div', 'user-block', el('div', 'avatar', initials(user.name)), el('div', 'user-info', el('strong', '', user.name), el('span', 'muted small', workspace.role)), signout)));
     const brand = sidebar.querySelector('.brand');
     brand.href = '#/overview';
     currentBreadcrumb = el('span', '', 'Overview');
