@@ -6,7 +6,7 @@ COPY web ./web
 COPY scripts/build-web.mjs ./scripts/build-web.mjs
 RUN npm run build
 
-FROM python:3.13-slim-bookworm
+FROM python:3.14-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 RUN useradd --create-home --uid 10001 flowpilot
